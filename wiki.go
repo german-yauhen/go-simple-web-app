@@ -9,6 +9,8 @@ import (
 	"syscall"
 )
 
+var templates = template.Must(template.ParseFiles("edit.html", "view.html", "saved.html", "notFoundPage.html"))
+
 func main() {
 	testPage := &Page{Title: "test", Body: []byte("Welcome to the test page!")}
 	testPage.save()
@@ -73,12 +75,13 @@ func loadPage(title string) (*Page, error) {
 }
 
 func renderTemplate(rsWriter http.ResponseWriter, viewName string, page *Page) {
-	viewPath := fmt.Sprintf("./template/%s.html", viewName)
-	template, err := template.ParseFiles(viewPath)
-	if err != nil {
-		http.Error(rsWriter, err.Error(), http.StatusInternalServerError)
-	}
-	err = template.Execute(rsWriter, page)
+	fullViewName := fmt.Sprintf("%s.html", viewName)
+	// template, err := template.ParseFiles(viewPath)
+	// if err != nil {
+	// 	http.Error(rsWriter, err.Error(), http.StatusInternalServerError)
+	// }
+	// err = template.Execute(rsWriter, page)
+	err := templates.ExecuteTemplate(rsWriter, fullViewName, page)
 	if err != nil {
 		http.Error(rsWriter, err.Error(), http.StatusInternalServerError)
 	}
