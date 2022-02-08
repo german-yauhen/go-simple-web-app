@@ -55,9 +55,12 @@ func handleSaveView(rsWriter http.ResponseWriter, rq *http.Request) {
 	title := rq.URL.Path[len("/save/"):]
 	bodyStr := rq.FormValue("body")
 	createdPage := &Page{Title: title, Body: []byte(bodyStr)}
-	renderTemplate(rsWriter, "saved", createdPage)
-	// page.save()
-	// http.Redirect(rsWriter, rq, fmt.Sprintf("/view/%s", title), http.StatusCreated)
+	err := createdPage.save()
+	if err != nil {
+		http.Error(rsWriter, err.Error(), http.StatusInternalServerError)
+	} else {
+		http.Redirect(rsWriter, rq, fmt.Sprintf("/view/%s", title), http.StatusCreated)
+	}
 }
 
 func loadPage(title string) (*Page, error) {
