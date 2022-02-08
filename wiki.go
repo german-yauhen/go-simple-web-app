@@ -9,12 +9,11 @@ import (
 )
 
 func main() {
-	// storedPage := &Page{Title: "firstpage", Body: []byte("The content of the first page")}
-	// storedPage.save()
-	
-	// loadedPage, _ := loadPage("firstpage")
-	// fmt.Println(string(loadedPage.Body))
+	testPage := &Page{Title: "test", Body: []byte("Welcome to the test page!")}
+	testPage.save()
+
 	http.HandleFunc("/", handleRoot)
+	http.HandleFunc("/view/", handleView)
 	log.Fatal(http.ListenAndServe(":8081", nil))
 }
 
@@ -34,7 +33,19 @@ func loadPage(title string) (*Page, error) {
 
 func handleRoot(rsWriter http.ResponseWriter, rq *http.Request) {
 	// rq.URL.Path[1:] creates a sub-slice of Path from the 1st character to the end, this drops the leading "/" from the path name
-	fmt.Fprintf(rsWriter, "Hi there! I love %s!", rq.URL.Path[1:])
+	fmt.Fprintf(rsWriter, "Hi, %s!", rq.URL.Path[1:])
+}
+
+func handleView(rsWriter http.ResponseWriter, rq *http.Request) {
+	title := rq.URL.Path[len("/view/"):]
+	page, err := loadPage(title)
+	if err != nil {
+		rsWriter.WriteHeader(http.StatusNotFound)
+		fmt.Fprintf(rsWriter, "<h1>Warning!</h1><div>Requested page %s not found</div>", title)
+	} else {
+		rsWriter.WriteHeader(http.StatusOK)
+		fmt.Fprintf(rsWriter, "<h1>%s</h1><div>%s</div>", page.Title, page.Body)
+	}
 }
 
 type Page struct {
