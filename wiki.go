@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"html/template"
 	"log"
 	"net/http"
 	"os"
@@ -14,21 +15,15 @@ func main() {
 
 	http.HandleFunc("/", handleRoot)
 	http.HandleFunc("/view/", handleView)
+	http.HandleFunc("/edit/", handleEditView)
+	http.HandleFunc("/save/", handleSaveView)
+
 	log.Fatal(http.ListenAndServe(":8081", nil))
 }
 
 func (pointerToPage *Page) save() error {
 	fileName := pointerToPage.Title + ".txt"
 	return os.WriteFile(fileName, pointerToPage.Body, syscall.O_RDWR)
-}
-
-func loadPage(title string) (*Page, error) {
-	fileName := title + ".txt"
-	body, err := os.ReadFile(fileName)
-	if err != nil {
-		return nil, err
-	}
-	return &Page{title, body}, nil
 }
 
 func handleRoot(rsWriter http.ResponseWriter, rq *http.Request) {
@@ -40,11 +35,49 @@ func handleView(rsWriter http.ResponseWriter, rq *http.Request) {
 	title := rq.URL.Path[len("/view/"):]
 	page, err := loadPage(title)
 	if err != nil {
-		rsWriter.WriteHeader(http.StatusNotFound)
-		fmt.Fprintf(rsWriter, "<h1>Warning!</h1><div>Requested page %s not found</div>", title)
+		renderTemplate(rsWriter, "notFoundPage", &Page{Title: title, Body: []byte(err.Error())})
 	} else {
-		rsWriter.WriteHeader(http.StatusOK)
-		fmt.Fprintf(rsWriter, "<h1>%s</h1><div>%s</div>", page.Title, page.Body)
+		renderTemplate(rsWriter, "view", page)
+	}
+}
+
+func handleEditView(rsWriter http.ResponseWriter, rq *http.Request) {
+	title := rq.URL.Path[len("/edit/"):]
+	page, err := loadPage(title)
+	if err != nil {
+		renderTemplate(rsWriter, "notFoundPage", &Page{Title: title, Body: []byte(err.Error())})
+	} else {
+		renderTemplate(rsWriter, "edit", page)
+	}
+}
+
+func handleSaveView(rsWriter http.ResponseWriter, rq *http.Request) {
+	title := rq.URL.Path[len("/save/"):]
+	bodyStr := rq.FormValue("body")
+	createdPage := &Page{Title: title, Body: []byte(bodyStr)}
+	renderTemplate(rsWriter, "saved", createdPage)
+	// page.save()
+	// http.Redirect(rsWriter, rq, fmt.Sprintf("/view/%s", title), http.StatusCreated)
+}
+
+func loadPage(title string) (*Page, error) {
+	fileName := title + ".txt"
+	body, err := os.ReadFile(fileName)
+	if err != nil {
+		return nil, err
+	}
+	return &Page{title, body}, nil
+}
+
+func renderTemplate(rsWriter http.ResponseWriter, viewName string, page *Page) {
+	viewPath := fmt.Sprintf("./template/%s.html", viewName)
+	template, err := template.ParseFiles(viewPath)
+	if err != nil {
+		http.Error(rsWriter, err.Error(), http.StatusInternalServerError)
+	}
+	err = template.Execute(rsWriter, page)
+	if err != nil {
+		http.Error(rsWriter, err.Error(), http.StatusInternalServerError)
 	}
 }
 
