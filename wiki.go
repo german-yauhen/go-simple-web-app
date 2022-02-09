@@ -1,15 +1,18 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"html/template"
 	"log"
 	"net/http"
 	"os"
+	"regexp"
 	"syscall"
 )
 
 var templates = template.Must(template.ParseFiles("edit.html", "view.html", "saved.html", "notFoundPage.html"))
+var titleRegexp = regexp.MustCompile("^/(edit|save|view)/([a-zA-Z0-9]+)$")
 
 func main() {
 	testPage := &Page{Title: "test", Body: []byte("Welcome to the test page!")}
@@ -34,7 +37,11 @@ func handleRoot(rsWriter http.ResponseWriter, rq *http.Request) {
 }
 
 func handleView(rsWriter http.ResponseWriter, rq *http.Request) {
-	title := rq.URL.Path[len("/view/"):]
+	// title := rq.URL.Path[len("/view/"):]
+	title, err := validateAndGetTitle(rsWriter, rq)
+	if err != nil {
+		return
+	}
 	page, err := loadPage(title)
 	if err != nil {
 		renderTemplate(rsWriter, "notFoundPage", &Page{Title: title, Body: []byte(err.Error())})
@@ -44,7 +51,11 @@ func handleView(rsWriter http.ResponseWriter, rq *http.Request) {
 }
 
 func handleEditView(rsWriter http.ResponseWriter, rq *http.Request) {
-	title := rq.URL.Path[len("/edit/"):]
+	// title := rq.URL.Path[len("/edit/"):]
+	title, err := validateAndGetTitle(rsWriter, rq)
+	if err != nil {
+		return
+	}
 	page, err := loadPage(title)
 	if err != nil {
 		renderTemplate(rsWriter, "notFoundPage", &Page{Title: title, Body: []byte(err.Error())})
@@ -54,10 +65,14 @@ func handleEditView(rsWriter http.ResponseWriter, rq *http.Request) {
 }
 
 func handleSaveView(rsWriter http.ResponseWriter, rq *http.Request) {
-	title := rq.URL.Path[len("/save/"):]
+	// title := rq.URL.Path[len("/save/"):]
+	title, err := validateAndGetTitle(rsWriter, rq)
+	if err != nil {
+		return
+	}
 	bodyStr := rq.FormValue("body")
 	createdPage := &Page{Title: title, Body: []byte(bodyStr)}
-	err := createdPage.save()
+	err = createdPage.save()
 	if err != nil {
 		http.Error(rsWriter, err.Error(), http.StatusInternalServerError)
 	} else {
@@ -85,6 +100,15 @@ func renderTemplate(rsWriter http.ResponseWriter, viewName string, page *Page) {
 	if err != nil {
 		http.Error(rsWriter, err.Error(), http.StatusInternalServerError)
 	}
+}
+
+func validateAndGetTitle(rsWriter http.ResponseWriter, rq *http.Request) (string, error) {
+	matches := titleRegexp.FindStringSubmatch(rq.URL.Path)
+	if matches == nil {
+		http.NotFound(rsWriter, rq)
+		return "", errors.New("Invalid page title provided")
+	}
+	return matches[2], nil // The title is the second subexpression.
 }
 
 type Page struct {
