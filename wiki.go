@@ -19,9 +19,9 @@ func main() {
 	testPage.save()
 
 	http.HandleFunc("/", handleRoot)
-	http.HandleFunc("/view/", handleView)
-	http.HandleFunc("/edit/", handleEditView)
-	http.HandleFunc("/save/", handleSaveView)
+	http.HandleFunc("/view/", makeHandler(handleView))
+	http.HandleFunc("/edit/", makeHandler(handleEditView))
+	http.HandleFunc("/save/", makeHandler(handleSaveView))
 
 	log.Fatal(http.ListenAndServe(":8081", nil))
 }
@@ -36,12 +36,7 @@ func handleRoot(rsWriter http.ResponseWriter, rq *http.Request) {
 	fmt.Fprintf(rsWriter, "Hi, %s!", rq.URL.Path[1:])
 }
 
-func handleView(rsWriter http.ResponseWriter, rq *http.Request) {
-	// title := rq.URL.Path[len("/view/"):]
-	title, err := validateAndGetTitle(rsWriter, rq)
-	if err != nil {
-		return
-	}
+func handleView(rsWriter http.ResponseWriter, rq *http.Request, title string) {
 	page, err := loadPage(title)
 	if err != nil {
 		renderTemplate(rsWriter, "notFoundPage", &Page{Title: title, Body: []byte(err.Error())})
@@ -50,12 +45,7 @@ func handleView(rsWriter http.ResponseWriter, rq *http.Request) {
 	}
 }
 
-func handleEditView(rsWriter http.ResponseWriter, rq *http.Request) {
-	// title := rq.URL.Path[len("/edit/"):]
-	title, err := validateAndGetTitle(rsWriter, rq)
-	if err != nil {
-		return
-	}
+func handleEditView(rsWriter http.ResponseWriter, rq *http.Request, title string) {
 	page, err := loadPage(title)
 	if err != nil {
 		renderTemplate(rsWriter, "notFoundPage", &Page{Title: title, Body: []byte(err.Error())})
@@ -64,21 +54,57 @@ func handleEditView(rsWriter http.ResponseWriter, rq *http.Request) {
 	}
 }
 
-func handleSaveView(rsWriter http.ResponseWriter, rq *http.Request) {
-	// title := rq.URL.Path[len("/save/"):]
-	title, err := validateAndGetTitle(rsWriter, rq)
-	if err != nil {
-		return
-	}
+func handleSaveView(rsWriter http.ResponseWriter, rq *http.Request, title string) {
 	bodyStr := rq.FormValue("body")
 	createdPage := &Page{Title: title, Body: []byte(bodyStr)}
-	err = createdPage.save()
+	err := createdPage.save()
 	if err != nil {
 		http.Error(rsWriter, err.Error(), http.StatusInternalServerError)
 	} else {
 		http.Redirect(rsWriter, rq, fmt.Sprintf("/view/%s", title), http.StatusCreated)
 	}
 }
+
+// func handleView(rsWriter http.ResponseWriter, rq *http.Request) {
+// 	title, err := validateAndGetTitle(rsWriter, rq)
+// 	if err != nil {
+// 		return
+// 	}
+// 	page, err := loadPage(title)
+// 	if err != nil {
+// 		renderTemplate(rsWriter, "notFoundPage", &Page{Title: title, Body: []byte(err.Error())})
+// 	} else {
+// 		renderTemplate(rsWriter, "view", page)
+// 	}
+// }
+
+// func handleEditView(rsWriter http.ResponseWriter, rq *http.Request) {
+// 	title, err := validateAndGetTitle(rsWriter, rq)
+// 	if err != nil {
+// 		return
+// 	}
+// 	page, err := loadPage(title)
+// 	if err != nil {
+// 		renderTemplate(rsWriter, "notFoundPage", &Page{Title: title, Body: []byte(err.Error())})
+// 	} else {
+// 		renderTemplate(rsWriter, "edit", page)
+// 	}
+// }
+
+// func handleSaveView(rsWriter http.ResponseWriter, rq *http.Request) {
+// 	title, err := validateAndGetTitle(rsWriter, rq)
+// 	if err != nil {
+// 		return
+// 	}
+// 	bodyStr := rq.FormValue("body")
+// 	createdPage := &Page{Title: title, Body: []byte(bodyStr)}
+// 	err = createdPage.save()
+// 	if err != nil {
+// 		http.Error(rsWriter, err.Error(), http.StatusInternalServerError)
+// 	} else {
+// 		http.Redirect(rsWriter, rq, fmt.Sprintf("/view/%s", title), http.StatusCreated)
+// 	}
+// }
 
 func loadPage(title string) (*Page, error) {
 	fileName := title + ".txt"
@@ -91,24 +117,30 @@ func loadPage(title string) (*Page, error) {
 
 func renderTemplate(rsWriter http.ResponseWriter, viewName string, page *Page) {
 	fullViewName := fmt.Sprintf("%s.html", viewName)
-	// template, err := template.ParseFiles(viewPath)
-	// if err != nil {
-	// 	http.Error(rsWriter, err.Error(), http.StatusInternalServerError)
-	// }
-	// err = template.Execute(rsWriter, page)
 	err := templates.ExecuteTemplate(rsWriter, fullViewName, page)
 	if err != nil {
 		http.Error(rsWriter, err.Error(), http.StatusInternalServerError)
 	}
 }
 
-func validateAndGetTitle(rsWriter http.ResponseWriter, rq *http.Request) (string, error) {
-	matches := titleRegexp.FindStringSubmatch(rq.URL.Path)
-	if matches == nil {
-		http.NotFound(rsWriter, rq)
-		return "", errors.New("Invalid page title provided")
+// func validateAndGetTitle(rsWriter http.ResponseWriter, rq *http.Request) (string, error) {
+// 	matches := titleRegexp.FindStringSubmatch(rq.URL.Path)
+// 	if matches == nil {
+// 		http.NotFound(rsWriter, rq)
+// 		return "", errors.New("Invalid page title provided")
+// 	}
+// 	return matches[2], nil // The title is the second subexpression.
+// }
+
+func makeHandler(function func(http.ResponseWriter, *http.Request, string)) http.HandlerFunc {
+	return func(rsWriter http.ResponseWriter, rq *http.Request) {
+		matches := titleRegexp.FindStringSubmatch(rq.URL.Path)
+		if matches == nil {
+			http.NotFound(rsWriter, rq)
+			return
+		}
+		function(rsWriter, rq, matches[2])
 	}
-	return matches[2], nil // The title is the second subexpression.
 }
 
 type Page struct {
