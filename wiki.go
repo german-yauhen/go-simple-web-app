@@ -1,7 +1,6 @@
 package main
 
 import (
-	"errors"
 	"fmt"
 	"html/template"
 	"log"
@@ -65,47 +64,6 @@ func handleSaveView(rsWriter http.ResponseWriter, rq *http.Request, title string
 	}
 }
 
-// func handleView(rsWriter http.ResponseWriter, rq *http.Request) {
-// 	title, err := validateAndGetTitle(rsWriter, rq)
-// 	if err != nil {
-// 		return
-// 	}
-// 	page, err := loadPage(title)
-// 	if err != nil {
-// 		renderTemplate(rsWriter, "notFoundPage", &Page{Title: title, Body: []byte(err.Error())})
-// 	} else {
-// 		renderTemplate(rsWriter, "view", page)
-// 	}
-// }
-
-// func handleEditView(rsWriter http.ResponseWriter, rq *http.Request) {
-// 	title, err := validateAndGetTitle(rsWriter, rq)
-// 	if err != nil {
-// 		return
-// 	}
-// 	page, err := loadPage(title)
-// 	if err != nil {
-// 		renderTemplate(rsWriter, "notFoundPage", &Page{Title: title, Body: []byte(err.Error())})
-// 	} else {
-// 		renderTemplate(rsWriter, "edit", page)
-// 	}
-// }
-
-// func handleSaveView(rsWriter http.ResponseWriter, rq *http.Request) {
-// 	title, err := validateAndGetTitle(rsWriter, rq)
-// 	if err != nil {
-// 		return
-// 	}
-// 	bodyStr := rq.FormValue("body")
-// 	createdPage := &Page{Title: title, Body: []byte(bodyStr)}
-// 	err = createdPage.save()
-// 	if err != nil {
-// 		http.Error(rsWriter, err.Error(), http.StatusInternalServerError)
-// 	} else {
-// 		http.Redirect(rsWriter, rq, fmt.Sprintf("/view/%s", title), http.StatusCreated)
-// 	}
-// }
-
 func loadPage(title string) (*Page, error) {
 	fileName := title + ".txt"
 	body, err := os.ReadFile(fileName)
@@ -122,15 +80,6 @@ func renderTemplate(rsWriter http.ResponseWriter, viewName string, page *Page) {
 		http.Error(rsWriter, err.Error(), http.StatusInternalServerError)
 	}
 }
-
-// func validateAndGetTitle(rsWriter http.ResponseWriter, rq *http.Request) (string, error) {
-// 	matches := titleRegexp.FindStringSubmatch(rq.URL.Path)
-// 	if matches == nil {
-// 		http.NotFound(rsWriter, rq)
-// 		return "", errors.New("Invalid page title provided")
-// 	}
-// 	return matches[2], nil // The title is the second subexpression.
-// }
 
 func makeHandler(function func(http.ResponseWriter, *http.Request, string)) http.HandlerFunc {
 	return func(rsWriter http.ResponseWriter, rq *http.Request) {
